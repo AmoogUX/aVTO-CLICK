@@ -22,6 +22,8 @@ include = ["avtoklik*"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Документация — не исходный код: линтер не должен переписывать примеры в ней.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
