@@ -34,6 +34,7 @@ from pydantic import (
 )
 
 __all__ = [
+    "RepairForecastOut",
     "ALLOWED_PLATE_LETTERS",
     "CheckBlock",
     "CheckBlockStatus",
@@ -309,14 +310,23 @@ class ListingPrice(BaseModel):
     cached_at: str | None = None
 
 
+# Коды признаков склейки из :mod:`avtoklik.matching.dedup` — в человеческие слова.
+# Словарь обязан покрывать все коды каскада: непереведённый код утечёт прямо
+# в подпись под ценами («совпали attrs, телефон»), а это текст для пользователя.
 _MATCH_REASON_TITLES = {
     "vin": "VIN",
     "photo_phash": "фото",
     "phone": "телефон",
     "plate": "госномер",
+    "attrs": "характеристики",
     "geo_price": "город и цена",
     "text": "текст объявления",
 }
+
+#: Порядок в подписи задан дизайном: на экране B3 написано «совпали VIN, фото
+#: и телефон продавца». Алфавитный порядок кодов дал бы другую фразу, поэтому
+#: порядок фиксируется здесь явно, а не наследуется от множества признаков.
+_MATCH_REASON_ORDER = ("vin", "photo_phash", "phone", "plate", "attrs", "geo_price", "text")
 
 
 class ListingCluster(BaseModel):
@@ -343,7 +353,15 @@ class ListingCluster(BaseModel):
         """Человеческая подпись склейки: «совпали VIN, фото и телефон»."""
         if not self.deduplicated or not self.match_reasons:
             return None
-        titles = [_MATCH_REASON_TITLES.get(reason, reason) for reason in self.match_reasons]
+        ordered = sorted(
+            self.match_reasons,
+            key=lambda r: (
+                _MATCH_REASON_ORDER.index(r)
+                if r in _MATCH_REASON_ORDER
+                else len(_MATCH_REASON_ORDER)
+            ),
+        )
+        titles = [_MATCH_REASON_TITLES.get(reason, reason) for reason in ordered]
         listed = titles[0] if len(titles) == 1 else ", ".join(titles[:-1]) + " и " + titles[-1]
         return f"совпали {listed}"
 
@@ -366,6 +384,41 @@ class PaywallInfo(BaseModel):
     preview_blocks: list[str] = Field(default_factory=list)
 
 
+class RepairForecastOut(BaseModel):
+    """Прогноз затрат на ремонт под пробег автомобиля — экран C2 и блок на B3.
+
+    Почему интервал, а не одно число. Это математическое ожидание суммы
+    случайных величин с большой дисперсией: у конкретного владельца затраты
+    будут либо около нуля, либо заметно выше среднего. Одна цифра обещала бы
+    точность, которой у модели нет, поэтому клиенту всегда приходят и границы,
+    и разбор — из чего сумма складывается.
+
+    `calibrated` — главный флаг этого блока. Пока распространённость болячек
+    не откалибрована по статистике обращений СТО, доля упоминаний в отзывах
+    завышена (человек пишет отзыв, когда сломалось), и показывать проценты
+    нельзя: `lines` в этом случае несёт порядковую шкалу, а сумму надо
+    подавать как оценку сверху. Клиент обязан смотреть на этот флаг, а не
+    только на числа.
+    """
+
+    amount_rub: int = Field(ge=0, description="Ожидаемые затраты, ₽")
+    low_rub: int = Field(ge=0, description="Нижняя граница интервала, ₽")
+    high_rub: int = Field(ge=0, description="Верхняя граница интервала, ₽")
+    horizon_km: int = Field(gt=0, description="Горизонт прогноза по пробегу, км")
+    calibrated: bool = Field(
+        description="Откалибрована ли распространённость. False — проценты не показывать"
+    )
+    headline: str = ""
+    lines: list[str] = Field(default_factory=list, description="Разбор: из чего складывается сумма")
+
+    @model_validator(mode="after")
+    def _interval_is_sane(self) -> Self:
+        """Границы не должны противоречить точке: иначе на экране будет бессмыслица."""
+        if self.low_rub > self.high_rub:
+            raise ValueError("нижняя граница прогноза больше верхней")
+        return self
+
+
 class CheckVerdict(BaseModel):
     """Вердикт проверки — экран B3 (ТЗ, 7.1 `GET /checks/{id}/verdict`)."""
 
@@ -376,6 +429,10 @@ class CheckVerdict(BaseModel):
     cluster: ListingCluster | None = None
     degraded: list[DegradedSource] = Field(default_factory=list)
     coverage: SourcesCoverage
+    #: Прогноз ремонта под пробег этого автомобиля. `None` — по модели нет
+    #: данных или пробег неизвестен; блок на экране в этом случае не рисуется,
+    #: а не показывается нулями.
+    repair: RepairForecastOut | None = None
     paywall: PaywallInfo | None = None
 
 
