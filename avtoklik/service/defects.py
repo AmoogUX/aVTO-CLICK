@@ -15,17 +15,30 @@ from __future__ import annotations
 
 from avtoklik.knowledge import Defect, DefectNode, HazardModel, RemedyOption, WeibullParams
 
-__all__ = ["RIO_III_GENERATION_ID", "defects_for_model", "remedies_for_defect"]
+__all__ = [
+    "RIO_III_GENERATION_ID",
+    "SOLARIS_II_GENERATION_ID",
+    "defects_for_model",
+    "remedies_for_defect",
+]
 
 #: Идентификатор поколения эталонной модели дизайна (Kia Rio III).
 _RIO_III_GEN = 1
 RIO_III_GENERATION_ID = _RIO_III_GEN
+
+#: Второе поколение каталога — Hyundai Solaris II из негативного сценария фикстур.
+_SOLARIS_II_GEN = 2
+SOLARIS_II_GENERATION_ID = _SOLARIS_II_GEN
 
 # Узлы: подмножество справочника `defect_nodes`.
 _RACK = DefectNode(code="steering_rack", title_ru="Рулевая рейка", system="рулевое управление")
 _CATALYST = DefectNode(code="catalytic_converter", title_ru="Катализатор", system="выпуск")
 _THERMOSTAT = DefectNode(code="thermostat", title_ru="Термостат", system="охлаждение")
 _SUSPENSION = DefectNode(code="front_struts", title_ru="Передние стойки", system="подвеска")
+_AC_COMPRESSOR = DefectNode(
+    code="ac_compressor", title_ru="Компрессор кондиционера", system="климат"
+)
+_PAINT = DefectNode(code="body_paint", title_ru="Лакокрасочное покрытие", system="кузов")
 
 # Болячки эталонной модели из дизайна (экран C2 нарисован на Kia Rio III).
 # shape > 1 везде, где отказ вызван износом: вероятность растёт с пробегом.
@@ -80,6 +93,50 @@ _RIO_III: tuple[Defect, ...] = (
         hazard_params=WeibullParams(shape=2.4, scale=125_000.0),
         prevalence=None,
         observations_count=131,
+        confidence=3,
+    ),
+)
+
+# Болячки Hyundai Solaris II. Взяты из того же учебного корпуса отзывов, что и
+# Rio: катализатор описан в фикстуре 02 вместе с ценами замены на пламегаситель.
+_SOLARIS_II: tuple[Defect, ...] = (
+    Defect(
+        id=5,
+        generation_id=_SOLARIS_II_GEN,
+        node=_CATALYST,
+        title="Разрушение катализатора",
+        description="чек и провал тяги; чаще всего лечится пламегасителем с прошивкой",
+        severity=3,
+        hazard_model=HazardModel.WEIBULL,
+        hazard_params=WeibullParams(shape=2.8, scale=132_000.0),
+        prevalence=None,
+        observations_count=143,
+        confidence=3,
+    ),
+    Defect(
+        id=6,
+        generation_id=_SOLARIS_II_GEN,
+        node=_AC_COMPRESSOR,
+        title="Муфта компрессора кондиционера",
+        description="кондиционер перестаёт холодить, муфта меняется отдельно от компрессора",
+        severity=2,
+        hazard_model=HazardModel.WEIBULL,
+        hazard_params=WeibullParams(shape=2.2, scale=145_000.0),
+        prevalence=None,
+        observations_count=61,
+        confidence=2,
+    ),
+    Defect(
+        id=7,
+        generation_id=_SOLARIS_II_GEN,
+        node=_PAINT,
+        title="Тонкая краска: сколы капота и порогов",
+        description="не влияет на ход, но бьёт по цене при продаже",
+        severity=1,
+        hazard_model=HazardModel.WEIBULL,
+        hazard_params=WeibullParams(shape=1.6, scale=98_000.0),
+        prevalence=None,
+        observations_count=204,
         confidence=3,
     ),
 )
@@ -151,9 +208,58 @@ _REMEDIES: dict[int, tuple[RemedyOption, ...]] = {
             labor_rate=1800,
         ),
     ),
+    5: (
+        RemedyOption(
+            remedy="пламегаситель с прошивкой",
+            share=0.75,
+            parts_min=12_000,
+            parts_max=18_000,
+            labor_hours=2.0,
+            labor_rate=1800,
+        ),
+        RemedyOption(
+            remedy="оригинальный катализатор",
+            share=0.25,
+            parts_min=72_000,
+            parts_max=96_000,
+            labor_hours=2.5,
+            labor_rate=1800,
+        ),
+    ),
+    6: (
+        RemedyOption(
+            remedy="замена муфты",
+            share=0.7,
+            parts_min=5_400,
+            parts_max=11_000,
+            labor_hours=2.0,
+            labor_rate=1800,
+        ),
+        RemedyOption(
+            remedy="замена компрессора в сборе",
+            share=0.3,
+            parts_min=24_000,
+            parts_max=46_000,
+            labor_hours=3.0,
+            labor_rate=1800,
+        ),
+    ),
+    7: (
+        RemedyOption(
+            remedy="локальная покраска двух элементов",
+            share=1.0,
+            parts_min=6_000,
+            parts_max=14_000,
+            labor_hours=4.0,
+            labor_rate=1500,
+        ),
+    ),
 }
 
-_BY_MODEL: dict[int, tuple[Defect, ...]] = {_RIO_III_GEN: _RIO_III}
+_BY_MODEL: dict[int, tuple[Defect, ...]] = {
+    _RIO_III_GEN: _RIO_III,
+    _SOLARIS_II_GEN: _SOLARIS_II,
+}
 
 
 def defects_for_model(generation_id: int) -> tuple[Defect, ...]:

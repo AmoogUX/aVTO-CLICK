@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% set nav = 'showcase' %}
+
+{% block title %}Витрина автомобилей · АвтоКлик{% endblock %}
+{% block description %}Объявления с оценкой цены относительно рынка и расчётом ремонта под пробег{% endblock %}
+
+{% block content %}
+  <div class="showcase-head">
+    <div>
+      <p class="eyebrow">Витрина</p>
+      <h1>Автомобили с пробегом</h1>
+    </div>
+    <p class="cap">{{ cars|length }} {{ cars|length|plural('объявление', 'объявления', 'объявлений') }}</p>
+  </div>
+
+  <p class="lead">
+    У каждой машины сразу видно, как её цена соотносится с оценкой АвтоКлик.
+    Что может сломаться и сколько это будет стоить — на карточке, бесплатно.
+    Фотографий пока нет: их отдают площадки, а доступ к ним мы ещё не открыли.
+  </p>
+
+  {% if not cars %}
+    <div class="card empty">
+      <h3>Пока ничего не нашлось</h3>
+      <p class="cap">Попробуйте убрать часть условий поиска — покажем всё, что есть.</p>
+    </div>
+  {% else %}
+    <ul class="grid">
+      {% for car in cars %}
+        <li class="card listing-wrap{% if car.has_risk %} risk{% endif %}">
+          <a class="listing" href="{{ url_for('car_card', listing_id=car.listing_id) }}">
+            <span class="photo" aria-hidden="true">Фото</span>
+            <p class="name">{{ car.title }}</p>
+            <p class="meta">{{ car.subtitle }}{% if car.region %} · {{ car.region }}{% endif %}</p>
+            <p class="price">{{ car.price }}</p>
+            <span class="badges">
+              {% with badge = car.market %}{% include "_badge.html" %}{% endwith %}
+              {% if car.seller %}{% with badge = car.seller %}{% include "_badge.html" %}{% endwith %}{% endif %}
+            </span>
+          </a>
+          {# Текстовая строка риска обязательна: рамка и полоса — цвет,
+             а цвет в одиночку статус не передаёт (§3.4). #}
+          {% if car.risk_note %}
+            <p class="risk-note"><span aria-hidden="true">⚠</span>{{ car.risk_note }}</p>
+          {% endif %}
+          {% if car.also_on %}
+            <ul class="chips mt-3">
+              <li class="chip" data-platform="{{ car.platform }}"><span class="dot"></span>{{ car.platform }}</li>
+              {% for platform in car.also_on %}
+                <li class="chip" data-platform="{{ platform }}"><span class="dot"></span>{{ platform }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

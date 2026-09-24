@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115",
     "pydantic>=2.9",
     "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -18,6 +19,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["avtoklik*"]
+
+# Шаблоны и статика — часть пакета, а не «ресурсы рядом». Без этого
+# установленное колесо отдаёт 500 на первой же странице.
+[tool.setuptools.package-data]
+avtoklik = ["web/templates/*.html", "web/static/css/*.css"]
 
 [tool.ruff]
 line-length = 100

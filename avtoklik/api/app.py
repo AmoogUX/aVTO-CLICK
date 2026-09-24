@@ -36,12 +36,18 @@ def create_app(
     orchestrator: CheckOrchestrator | None = None,
     vehicle_repository: VehicleRepository | None = None,
     idempotency_store: IdempotencyStore | None = None,
+    with_web: bool = True,
 ) -> FastAPI:
     """Создать приложение.
 
     Все зависимости — необязательные аргументы: так интеграция с оркестратором
     из :mod:`avtoklik.collector` сводится к одному вызову, а тесты подменяют
     их либо здесь, либо через ``app.dependency_overrides``.
+
+    `with_web` подключает серверный веб-клиент (витрина и карточка). Он стоит
+    на корне `/`, тогда как API живёт под `/api/v1`, поэтому одно приложение
+    обслуживает и людей, и клиентов. Выключается там, где нужен голый API:
+    например, если веб будет разворачиваться отдельным сервисом.
     """
     app = FastAPI(
         title="АвтоКлик API",
@@ -59,6 +65,15 @@ def create_app(
 
     app.include_router(checks_router, prefix=API_PREFIX)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
+
+    if with_web:
+        # Импорт внутри функции разрывает цикл: веб-клиент строит свои
+        # представления на схемах API, а API подключает веб-клиент. Тащить
+        # ради этого схемы в третий модуль смысла нет — зависимость
+        # односторонняя по сути и кольцевая только по времени импорта.
+        from avtoklik.web.routes import mount_web
+
+        mount_web(app)
 
     @app.get("/health", tags=["service"], summary="Проверка живости")
     async def health() -> dict[str, str]:

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% set nav = 'showcase' %}
+
+{% block title %}{{ car.title }}, {{ car.year }} — {{ car.price }} · АвтоКлик{% endblock %}
+{% block description %}{{ car.title }}, {{ car.subtitle }}. {% if car.repair %}{{ car.repair.headline }}: {{ car.repair_range }}.{% endif %}{% endblock %}
+
+{% block content %}
+  <p class="eyebrow"><a href="{{ url_for('showcase') }}">← Витрина</a></p>
+  <h1>{{ car.title }}</h1>
+  <p class="lead">{{ car.subtitle }}{% if car.region %} · {{ car.region }}{% endif %}</p>
+
+  {#
+    Сводка с ценой стоит в разметке первой: на телефоне колонки складываются
+    в одну, и цена обязана оказаться под заголовком, а не под пейволлом.
+    На широком экране она переезжает во вторую колонку правилом сетки.
+
+    Порядок внутри основной колонки задан 5.5а и не меняется ни на одной
+    ширине: сначала бесплатная польза (что сломается и почём), и только
+    ниже — предложение купить проверку.
+  #}
+  <div class="card-layout">
+    <aside class="stack aside" aria-label="Цена и продавец">
+      <section class="card hero{% if car.has_risk %} risk{% endif %}">
+        <p class="price">{{ car.price }}</p>
+        <p class="badge-row">
+          {% with badge = car.market %}{% include "_badge.html" %}{% endwith %}
+          {% if car.seller %}{% with badge = car.seller %}{% include "_badge.html" %}{% endwith %}{% endif %}
+        </p>
+        {% if car.market.tone != 'unknown' %}
+          <p class="cap">Оценка АвтоКлик — {{ car.market_price }}</p>
+        {% else %}
+          <p class="cap">По этой модели данных для оценки цены пока недостаточно</p>
+        {% endif %}
+        {% if car.risk_note %}
+          <p class="risk-note"><span aria-hidden="true">⚠</span>{{ car.risk_note }}</p>
+        {% endif %}
+      </section>
+
+      {% if car.also_on %}
+        {# DedupBanner (5.2): то же авто на других площадках. #}
+        <section class="card soft" aria-labelledby="dedup-title">
+          <h3 id="dedup-title">Это авто есть ещё на {{ car.also_on|length }} {{ car.also_on|length|plural('площадке', 'площадках', 'площадках') }}</h3>
+          <ul class="chips">
+            <li class="chip" data-platform="{{ car.platform }}"><span class="dot"></span>{{ car.platform }}</li>
+            {% for platform in car.also_on %}
+              <li class="chip" data-platform="{{ platform }}"><span class="dot"></span>{{ platform }}</li>
+            {% endfor %}
+          </ul>
+          <p class="cap mt-4">Совпали VIN, фото и телефон продавца.</p>
+        </section>
+      {% endif %}
+
+    </aside>
+    <div class="stack">
+      <div class="card soft media" aria-hidden="true">Фото</div>
+
+      <section class="card" aria-labelledby="specs-title">
+        <h2 id="specs-title">Характеристики</h2>
+        <dl class="kv">
+          <div><dt>Год</dt><span class="fill"></span><dd>{{ car.year }}</dd></div>
+          <div><dt>Пробег</dt><span class="fill"></span><dd>{{ car.mileage }}</dd></div>
+          <div><dt>Площадка</dt><span class="fill"></span><dd>{{ car.platform }}</dd></div>
+          {% if car.region %}
+            <div><dt>Регион</dt><span class="fill"></span><dd>{{ car.region }}</dd></div>
+          {% endif %}
+        </dl>
+      </section>
+
+      {# ── Бесплатный блок: болячки модели и ремонт под пробег (5.6) ── #}
+      <section class="card repair" aria-labelledby="repair-title">
+        {% if car.repair %}
+          <h2 id="repair-title">{{ car.repair.headline }}</h2>
+          <p class="amount">{{ car.repair_range }}</p>
+          {#
+            Диапазон, а не одно число: по §5.C одна «точная» цифра выдаёт
+            выход вероятностной модели за факт. Формулировка тоже
+            осторожная — это типичный автомобиль этой модели и пробега,
+            а не история конкретной машины.
+          #}
+          <p class="cap">
+            Столько обычно уходит на ремонт у машин этой модели с пробегом
+            около {{ car.mileage }} — на ближайшие {{ (car.repair.horizon_km / 1000)|round|int }} т. км.
+          </p>
+          <ul>
+            {% for line in car.repair_items %}
+              <li>{{ line }}</li>
+            {% endfor %}
+          </ul>
+          {% for note in car.repair_notes %}
+            <p class="cap mt-4">{{ note }}</p>
+          {% endfor %}
+          <p class="disclaimer">
+            Расчёт по отзывам владельцев и ценам работ, а не по истории этого
+            автомобиля. Что с ним было на самом деле — в проверке по базам ниже.
+          </p>
+        {% else %}
+          {# EmptyState: что случилось · почему · что делать (§1.6). #}
+          <h2 id="repair-title">По этой модели данных пока мало</h2>
+          <p class="cap">
+            Мы считаем ремонт по отзывам владельцев, а их для этой модели
+            собрано недостаточно, чтобы называть суммы.
+          </p>
+          <p class="cap">
+            Историю самого автомобиля это не затрагивает — её можно проверить
+            по базам ниже.
+          </p>
+        {% endif %}
+      </section>
+
+      {# ── Платный блок: проверка по базам ── #}
+      <section class="card offer" aria-labelledby="check-title">
+        <h2 id="check-title">{{ car.check.title }}</h2>
+        <p class="cap">{{ car.check.note }}</p>
+
+        <ul class="teaser">
+          <li><span class="glyph" aria-hidden="true">✓</span>ДТП и ремонты по базе ГИБДД</li>
+          <li><span class="glyph" aria-hidden="true">✓</span>Сколько было владельцев и как долго</li>
+          <li><span class="glyph" aria-hidden="true">✓</span>Залог, ограничения, работа в такси</li>
+          <li><span class="glyph" aria-hidden="true">✓</span>История пробегов — видно, если его скрутили</li>
+        </ul>
+
+        {% if car.check.needs_manual_input %}
+          <p class="cap">
+            Продавец не указал госномер. Введите его — проверим по тем же базам.
+          </p>
+          <form class="price-row" method="get" action="{{ url_for('showcase') }}">
+            <label class="sr-only" for="plate">Госномер</label>
+            <input class="plate-input" id="plate" name="plate" autocomplete="off" placeholder="А000АА000">
+            <button class="btn lm" type="submit">Проверить за {{ car.check_price }}</button>
+          </form>
+        {% else %}
+          <p class="cap subject">
+            Проверяем
+            {% if car.check.subject_type == 'vin' %}
+              по VIN <span class="mono">{{ car.check.subject_value }}</span>
+            {% else %}
+              по госномеру
+              <span class="plate"><span class="n">{{ car.check.subject_value }}</span></span>
+            {% endif %}
+          </p>
+          <div class="price-row">
+            <p class="cap">Отчёт остаётся в профиле навсегда</p>
+            <button class="btn lm" type="button" disabled>
+              Проверить за {{ car.check_price }}
+            </button>
+          </div>
+          {# Кнопка выключена сознательно: оплата и запуск проверки — следующий
+             шаг сборки (экран B2). Живой кнопки, которая ничего не делает,
+             быть не должно. #}
+          <p class="cap">Оплата подключается — проверка запустится с экрана «рентген».</p>
+        {% endif %}
+      </section>
+
+      {# Ссылка на само объявление — последнее действие карточки. На телефоне
+         в шапке она конкурировала бы с ценой. #}
+      {% if car.url %}
+        <a class="btn gh block" href="{{ car.url }}" rel="nofollow noopener" target="_blank">
+          Объявление на {{ car.platform }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
