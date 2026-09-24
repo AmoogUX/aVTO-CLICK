@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% set nav = 'sell' %}
+
+{% block title %}{{ view.title }} — сколько просить · АвтоКлик{% endblock %}
+
+{% block content %}
+  <p class="eyebrow">Шаг 2 из 3</p>
+  <h1>{{ view.title }}</h1>
+  <p class="lead">{{ view.year }} · {{ view.mileage }}{% if view.region %} · {{ view.region }}{% endif %}</p>
+
+  <div class="card-layout">
+    <aside class="stack aside" aria-label="Что заполнено автоматически">
+      <section class="card" aria-labelledby="filled-title">
+        <h2 id="filled-title">Заполнили сами</h2>
+        <dl class="kv">
+          {% for item in view.filled %}
+            <div>
+              <dt>{{ item.label }}</dt>
+              <span class="fill"></span>
+              <dd><span class="ok-glyph" aria-hidden="true">✓</span>{{ item.value }}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+        <p class="cap mt-4">Источник — ГИБДД. Что-то не так — поправите перед публикацией.</p>
+      </section>
+
+      {% if view.withheld %}
+        <section class="card soft" aria-labelledby="withheld-title">
+          <h3 id="withheld-title">Покажем после подтверждения СТС</h3>
+          <ul class="teaser">
+            {% for name in view.withheld %}
+              <li>{{ name }}</li>
+            {% endfor %}
+          </ul>
+          <p class="cap">
+            Это история конкретного автомобиля, а не характеристики модели.
+            Отдавать её всякому, кто знает номер, мы не будем — включая случай,
+            когда номер ваш.
+          </p>
+        </section>
+      {% endif %}
+    </aside>
+
+    <div class="stack">
+      <section class="card" aria-labelledby="price-title">
+        <h2 id="price-title">Сколько просить</h2>
+
+        {% if view.has_estimate %}
+          <p class="amount">{{ view.recommended.price }}</p>
+          <p class="cap">Рекомендуем · продажа {{ view.recommended.days }}</p>
+          <ul class="teaser">
+            {% for reason in view.reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+
+          {#
+            Шкала «быстрее ↔ дороже». Края заданы сроком, а не процентом
+            скидки: продавец думает «хочу продать за неделю», а не «готов
+            уступить 3,3 %». Срок нигде не показывается точнее целого дня —
+            «12,4 дня» было бы ложной точностью (5.3.3).
+          #}
+          <ul class="scale" role="list">
+            {% for anchor in view.anchors %}
+              <li class="scale-point{% if anchor.caption == 'рекомендуем' %} on{% endif %}">
+                <p class="cap">{{ anchor.caption }}</p>
+                <p class="scale-price">{{ anchor.price }}</p>
+                <p class="cap">{{ anchor.days }}</p>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {# 5.3.4: по редкой модели оценки нет, и выдумывать её нельзя. #}
+          <p>По этой модели в продаже слишком мало похожих машин, чтобы мы назвали цену.</p>
+          <p class="cap">
+            Назначьте свою — как только похожих объявлений станет достаточно,
+            покажем, как она смотрится на их фоне.
+          </p>
+        {% endif %}
+
+        <form class="price-form" method="post" action="{{ url_for('sell_publish', draft_id=view.draft_id) }}">
+          <div>
+            <label class="eyebrow" for="price">Ваша цена, ₽</label>
+            <input class="field" id="price" name="price_rub" inputmode="numeric" autocomplete="off"
+                   value="{{ view.recommended.price_rub if view.has_estimate else '' }}" required>
+          </div>
+          <button class="btn lm" type="submit">Опубликовать</button>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endblock %}

@@ -17,16 +17,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from avtoklik.api.schemas import RepairForecastOut
+from avtoklik.pricing import PriceAnchors
 from avtoklik.service.card import CheckOffer, ProductCard, build_product_card
+from avtoklik.service.sell import CheckIssue, DraftStatus, FilledField, SellDraft, suggest_price
 from avtoklik.service.showcase import ShowcaseCar, region_title
 
 __all__ = [
     "MARKET_BAND",
     "SUSPICIOUS_DISCOUNT",
+    "AnchorView",
     "CardView",
+    "SellView",
     "ShowcaseItemView",
     "StatusBadge",
     "build_card_view",
+    "build_sell_view",
     "build_showcase_view",
     "format_mileage",
     "format_money",
@@ -241,4 +246,100 @@ def build_card_view(car: ShowcaseCar, *, check_price_rub: int = 199) -> CardView
         check=card.check,
         check_price=format_money(card.check.price_rub),
         also_on=car.also_on,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class AnchorView:
+    """Точка шкалы «быстрее ↔ дороже» в том виде, в каком её читают."""
+
+    price: str
+    price_rub: int
+    days: str
+    caption: str
+
+
+@dataclass(frozen=True, slots=True)
+class SellView:
+    """Экран продажи: что заполнено, что придержано, сколько просить."""
+
+    draft_id: str
+    title: str
+    subject_type: str | None
+    subject_value: str | None
+    filled: tuple[FilledField, ...]
+    withheld: tuple[str, ...]
+    ownership_confirmed: bool
+    mileage: str
+    year: str
+    region: str
+    #: ``None`` — сегмент слишком тонкий, оценки нет, цену назначает продавец.
+    anchors: tuple[AnchorView, ...]
+    recommended: AnchorView | None
+    reasons: tuple[str, ...]
+    price: str
+    price_rub: int | None
+    status: DraftStatus
+    issues: tuple[CheckIssue, ...]
+    listing_id: str
+
+    @property
+    def is_published(self) -> bool:
+        return self.status is DraftStatus.PUBLISHED
+
+    @property
+    def is_rejected(self) -> bool:
+        return self.status is DraftStatus.REJECTED
+
+    @property
+    def has_estimate(self) -> bool:
+        return self.recommended is not None
+
+
+def _anchor_view(price_rub: int, days: str, caption: str) -> AnchorView:
+    return AnchorView(
+        price=format_money(price_rub), price_rub=price_rub, days=days, caption=caption
+    )
+
+
+def build_sell_view(draft: SellDraft) -> SellView:
+    """Собрать экран продажи по черновику.
+
+    Шкала цен строится здесь, а не в шаблоне, по той же причине, что и бейджи:
+    правило 5.3.3 «срок не показывается точнее целого дня» должно жить в одном
+    месте, а не повторяться в каждой вёрстке.
+    """
+    anchors: PriceAnchors | None = suggest_price(draft)
+    scale: tuple[AnchorView, ...] = ()
+    recommended: AnchorView | None = None
+    reasons: tuple[str, ...] = ()
+    if anchors is not None:
+        scale = (
+            _anchor_view(anchors.fast.price_rub, anchors.fast.days_label, "быстрее"),
+            _anchor_view(
+                anchors.recommended.price_rub, anchors.recommended.days_label, "рекомендуем"
+            ),
+            _anchor_view(anchors.slow.price_rub, anchors.slow.days_label, "дороже"),
+        )
+        recommended = scale[1]
+        reasons = anchors.estimate.reasons
+    return SellView(
+        draft_id=draft.draft_id,
+        title=draft.title or "Автомобиль",
+        subject_type=draft.subject_type,
+        subject_value=draft.subject_value,
+        filled=draft.filled,
+        withheld=draft.withheld,
+        ownership_confirmed=draft.ownership_confirmed,
+        mileage=format_mileage(draft.mileage_km),
+        year=str(draft.year) if draft.year else "—",
+        region=region_title(draft.region_id),
+        anchors=scale,
+        recommended=recommended,
+        reasons=reasons,
+        price=format_money(draft.price_rub),
+        price_rub=draft.price_rub,
+        status=draft.status,
+        issues=draft.issues,
+        listing_id=f"avtoklik-{draft.draft_id}",
     )

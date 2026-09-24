@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set nav = 'sell' %}
+
+{% block title %}Продать автомобиль · АвтоКлик{% endblock %}
+{% block description %}Введите госномер — марку, год и двигатель заполним сами, цену подскажем по своему сегменту{% endblock %}
+
+{% block content %}
+  <p class="eyebrow">Шаг 1 из 3</p>
+  <h1>Продать автомобиль</h1>
+  <p class="lead">
+    Введите госномер — марку, год и двигатель заполним сами. Останется то,
+    что знаете только вы: пробег и состояние.
+  </p>
+
+  {% if not_found %}
+    {# CC5: что случилось · почему · что делать. Обходной путь обязателен. #}
+    <section class="card empty" aria-labelledby="err-title">
+      <h3 id="err-title">Такой номер не находится в базах</h3>
+      <p class="cap">{{ hint }}</p>
+      <p class="cap">Можно ввести VIN — он опознаёт автомобиль однозначно.</p>
+    </section>
+  {% endif %}
+
+  <form class="card stack" method="post" action="{{ url_for('sell_create') }}">
+    <div>
+      <label class="eyebrow" for="subject">Госномер или VIN</label>
+      <input class="plate-input" id="subject" name="subject" autocomplete="off"
+             placeholder="А000АА000" value="{{ subject or '' }}" required>
+    </div>
+
+    <div>
+      <label class="eyebrow" for="mileage">Пробег по одометру, км</label>
+      <input class="field" id="mileage" name="mileage_km" inputmode="numeric"
+             autocomplete="off" placeholder="134 000">
+    </div>
+
+    <div>
+      <label class="eyebrow" for="region">Регион</label>
+      <select class="field" id="region" name="region_id">
+        <option value="">не выбран</option>
+        <option value="77">Москва</option>
+        <option value="78">Санкт-Петербург</option>
+        <option value="16">Казань</option>
+        <option value="66">Екатеринбург</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow" for="description">Что важно знать о машине</label>
+      <textarea class="field" id="description" name="description" rows="4"
+                placeholder="Обслуживалась у дилера, два комплекта резины"></textarea>
+      <p class="cap mt-3">Телефон и ссылки в описании не публикуются — их первыми собирают перекупы.</p>
+    </div>
+
+    {#
+      Подтверждение владения. По госномеру чужой машины из ГИБДД приходит
+      число владельцев и история ДТП, а владение интерфейс никак не проверяет.
+      Пока владение не подтверждено, этих данных нет в ответе вовсе — не
+      «скрыты в вёрстке», а не приходят.
+    #}
+    <label class="checkrow">
+      <input type="checkbox" name="ownership" value="1">
+      <span>
+        <b>Это моя машина, у меня есть СТС</b>
+        <span class="cap">Подтвердим документом при публикации. Без этого число владельцев
+        и историю пробегов не покажем даже вам.</span>
+      </span>
+    </label>
+
+    <button class="btn lm block" type="submit">Заполнить по номеру</button>
+  </form>
+{% endblock %}

@@ -115,6 +115,11 @@ class TestAdaptiveShell:
         base = css[: css.index("@media (min-width: 600px)")]
         assert "grid-template-columns: 1fr;" in base
 
+    def test_muted_text_is_repainted_on_the_lime_card(self) -> None:
+        """--mute на лайме даёт 4,06 и не проходит AA: подпись обязана перекраситься."""
+        css = (STATIC_DIR / "css" / "app.css").read_text(encoding="utf-8")
+        assert ".card.lime .cap" in css
+
     def test_reduced_motion_is_respected(self) -> None:
         css = (STATIC_DIR / "css" / "app.css").read_text(encoding="utf-8")
         assert "@media (prefers-reduced-motion: reduce)" in css

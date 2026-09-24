@@ -19,8 +19,8 @@
       <a class="brand" href="{{ url_for('showcase') }}">АвтоКлик</a>
       <nav aria-label="Основная навигация">
         <a href="{{ url_for('showcase') }}"{% if nav == 'showcase' %} aria-current="page"{% endif %}>Витрина</a>
+        <a href="{{ url_for('sell_start') }}"{% if nav == 'sell' %} aria-current="page"{% endif %}>Продать</a>
         <a href="{{ url_for('showcase') }}">Проверка</a>
-        <a href="{{ url_for('showcase') }}">Профиль</a>
       </nav>
     </div>
   </header>
@@ -41,8 +41,8 @@
       <span class="sr-only">Проверка по госномеру</span>
       <span class="tab-icon" aria-hidden="true">⌕</span>
     </a>
-    <a href="{{ url_for('showcase') }}">
-      <span class="tab-icon" aria-hidden="true">☺</span>Профиль
+    <a href="{{ url_for('sell_start') }}"{% if nav == 'sell' %} aria-current="page"{% endif %}>
+      <span class="tab-icon" aria-hidden="true">＋</span>Продать
     </a>
   </nav>
 </body>

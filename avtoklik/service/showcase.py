@@ -31,15 +31,41 @@ from avtoklik.service.sources.fixtures import (
 )
 
 __all__ = [
+    "OWN_PLATFORM",
     "UNKNOWN_GENERATION",
     "ShowcaseCar",
+    "generation_for_model",
     "get_car",
     "list_showcase",
     "region_title",
+    "register_published",
+    "reset_published",
 ]
 
 #: Поколение неизвестно — по такой модели болячек не собрано (штатное состояние).
 UNKNOWN_GENERATION = -1
+
+#: Площадка собственных объявлений. Витрина, собранная только из чужих
+#: объявлений, зависит от переговоров с площадками; свои объявления от них
+#: не зависят и наполняют её параллельно.
+OWN_PLATFORM = "АвтоКлик"
+
+_MODEL_GENERATIONS = {
+    "kia-rio-3": RIO_III_GENERATION_ID,
+    "hyundai-solaris-2": SOLARIS_II_GENERATION_ID,
+}
+
+
+def generation_for_model(model_id: str | None) -> int:
+    """Поколение по ключу модели.
+
+    Неизвестная модель — это :data:`UNKNOWN_GENERATION`, а не ошибка: по ней
+    просто нет собранных болячек, и карточка честно скажет об этом.
+    """
+    if not model_id:
+        return UNKNOWN_GENERATION
+    return _MODEL_GENERATIONS.get(model_id, UNKNOWN_GENERATION)
+
 
 _REGIONS = {
     77: "Москва",
@@ -225,17 +251,37 @@ _CARS: tuple[ShowcaseCar, ...] = (
 
 _BY_ID = {car.listing_id: car for car in _CARS}
 
+# Опубликованные собственные объявления. Хранилище в памяти — временная замена
+# таблице: витрине важно только то, что свои объявления попадают в неё тем же
+# путём, что и чужие, и ничем в ней не выделены, кроме площадки.
+_PUBLISHED: list[ShowcaseCar] = []
+
+
+def register_published(car: ShowcaseCar) -> None:
+    """Добавить в витрину опубликованное собственное объявление."""
+    _PUBLISHED.append(car)
+
+
+def reset_published() -> None:
+    """Очистить опубликованные объявления. Нужно тестам: хранилище общее."""
+    _PUBLISHED.clear()
+
 
 def list_showcase() -> tuple[ShowcaseCar, ...]:
-    """Все объявления витрины в порядке, заданном источником.
+    """Все объявления витрины: свои сверху, затем собранные с площадок.
+
+    Свои идут первыми не ради привилегии, а потому что они свежие: это
+    объявления, опубликованные прямо сейчас, и продавец должен увидеть своё
+    сразу после публикации.
 
     Сортировка «сначала выгодные» из D1 сюда не зашита намеренно: по §5.D она
     наша редакционная власть над чужой выдачей и требует объяснения алгоритма,
     поэтому порядок выбирается на уровне представления и может быть заменён.
     """
-    return _CARS
+    return (*reversed(_PUBLISHED), *_CARS)
 
 
 def get_car(listing_id: str) -> ShowcaseCar | None:
     """Объявление по идентификатору. ``None`` — такого объявления нет."""
-    return _BY_ID.get(listing_id)
+    own = next((car for car in _PUBLISHED if car.listing_id == listing_id), None)
+    return own or _BY_ID.get(listing_id)

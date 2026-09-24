@@ -13,16 +13,31 @@ HTML собирается на сервере и приходит готовым
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, FastAPI, Form, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from avtoklik.api.schemas import PLATE_HINT
+from avtoklik.service.sell import create_draft, get_draft, publish_draft, set_price
 from avtoklik.service.showcase import get_car, list_showcase
-from avtoklik.web.view import build_card_view, build_showcase_view
+from avtoklik.web.view import build_card_view, build_sell_view, build_showcase_view
 
 __all__ = ["STATIC_DIR", "TEMPLATES_DIR", "create_router", "mount_web", "plural"]
+
+
+def _as_int(raw: str) -> int | None:
+    """Прочитать число из формы. Мусор — это ``None``, а не исключение.
+
+    Поля формы приходят строками, и «сто тысяч» вместо «100000» не должно
+    ронять запрос: дальше по флоу отсутствующий пробег поймают автопроверки
+    и объяснят продавцу, что именно исправить.
+    """
+    digits = "".join(char for char in raw if char.isdigit())
+    return int(digits) if digits else None
+
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -77,6 +92,84 @@ def create_router() -> APIRouter:
             # иначе поисковик проиндексирует снятое объявление как живое.
             return templates.TemplateResponse(request, "not_found.html", {}, status_code=404)
         return templates.TemplateResponse(request, "car.html", {"car": build_card_view(car)})
+
+    # ── Флоу продажи (E1 → E3 → E4) ──────────────────────────────────────
+    #
+    # Шагов ровно три, и каждый — отдельный адрес: продавец уходит искать
+    # пробег в ПТС и возвращается по ссылке, а не начинает заново. Черновик
+    # живёт на сервере (T-12-5), поэтому возврат ничего не теряет.
+
+    @router.get("/sell", response_class=HTMLResponse, name="sell_start")
+    async def sell_start(request: Request) -> HTMLResponse:
+        """E1: госномер и то, что знает только владелец."""
+        return templates.TemplateResponse(request, "sell_start.html", {})
+
+    @router.post("/sell", response_class=HTMLResponse, name="sell_create")
+    async def sell_create(
+        request: Request,
+        subject: Annotated[str, Form()] = "",
+        mileage_km: Annotated[str, Form()] = "",
+        region_id: Annotated[str, Form()] = "",
+        description: Annotated[str, Form()] = "",
+        ownership: Annotated[str, Form()] = "",
+    ) -> Response:
+        """Создать черновик по введённому госномеру.
+
+        Пустой или неопознанный номер — не ошибка формы, а состояние CC5:
+        объясняем, что не так, и предлагаем обходной путь, а не отбиваем ввод
+        красной рамкой.
+        """
+        draft, found = create_draft(
+            subject,
+            mileage_km=_as_int(mileage_km),
+            region_id=_as_int(region_id),
+            description=description.strip(),
+            ownership_confirmed=bool(ownership),
+        )
+        if not found.found:
+            return templates.TemplateResponse(
+                request,
+                "sell_start.html",
+                {"subject": subject, "not_found": True, "hint": PLATE_HINT},
+                status_code=422,
+            )
+        return RedirectResponse(
+            request.url_for("sell_price", draft_id=draft.draft_id), status_code=303
+        )
+
+    @router.get("/sell/{draft_id}/price", response_class=HTMLResponse, name="sell_price")
+    async def sell_price(request: Request, draft_id: str) -> HTMLResponse:
+        """E3: что сервис заполнил сам и сколько просить."""
+        draft = get_draft(draft_id)
+        if draft is None:
+            return templates.TemplateResponse(request, "not_found.html", {}, status_code=404)
+        return templates.TemplateResponse(
+            request, "sell_price.html", {"view": build_sell_view(draft)}
+        )
+
+    @router.post("/sell/{draft_id}/price", response_class=HTMLResponse, name="sell_publish")
+    async def sell_publish(
+        request: Request, draft_id: str, price_rub: Annotated[str, Form()] = ""
+    ) -> Response:
+        """Назначить цену и опубликовать."""
+        draft = get_draft(draft_id)
+        if draft is None:
+            return templates.TemplateResponse(request, "not_found.html", {}, status_code=404)
+        price = _as_int(price_rub)
+        if price is not None and price > 0:
+            set_price(draft_id, price)
+        publish_draft(draft_id)
+        return RedirectResponse(request.url_for("sell_done", draft_id=draft_id), status_code=303)
+
+    @router.get("/sell/{draft_id}/done", response_class=HTMLResponse, name="sell_done")
+    async def sell_done(request: Request, draft_id: str) -> HTMLResponse:
+        """E4: опубликовано — или список правок, если автопроверки не прошли (CC6)."""
+        draft = get_draft(draft_id)
+        if draft is None:
+            return templates.TemplateResponse(request, "not_found.html", {}, status_code=404)
+        return templates.TemplateResponse(
+            request, "sell_done.html", {"view": build_sell_view(draft)}
+        )
 
     return router
 

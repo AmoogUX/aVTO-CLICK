@@ -223,6 +223,13 @@ h3 {
   color: var(--color-on-benefit);
 }
 
+/* На лайме допустим только --color-on-benefit (12,63). Третичный --mute даёт
+   на нём 4,06 и не проходит AA для обычного текста, поэтому подписи внутри
+   лаймовой карточки перекрашиваются, а не наследуются. */
+.card.lime .cap {
+  color: var(--color-on-benefit);
+}
+
 /* §3.4, D1: рискованная карточка помечается не только рамкой, но и левой
    полосой 3 px, и обязательной текстовой строкой в теле. */
 .card.risk {
@@ -522,9 +529,9 @@ h3 {
   text-align: right;
 }
 
-/* Бесплатный блок: болячки и ремонт под пробег. Стоит выше платного —
-   порядок задан 5.5а и здесь он держится структурой документа, а не CSS. */
-.repair .amount {
+/* Герой-число блока: сумма ремонта, рекомендованная цена. На экране оно
+   ровно одно (§1.1), поэтому стиль общий. */
+.amount {
   font-family: var(--font-disp);
   font-size: var(--fs-display-m);
   font-weight: 700;
@@ -533,7 +540,7 @@ h3 {
   margin: var(--sp-2) 0;
 }
 
-.repair ul {
+.repair > ul {
   margin: var(--sp-4) 0 0;
   padding: 0;
   list-style: none;
@@ -566,7 +573,7 @@ h3 {
   border: 1px solid var(--line-strong);
 }
 
-.offer .teaser {
+.teaser {
   display: grid;
   gap: var(--sp-3);
   margin: var(--sp-5) 0;
@@ -574,7 +581,7 @@ h3 {
   list-style: none;
 }
 
-.offer .teaser li {
+.teaser li {
   display: flex;
   gap: var(--sp-3);
   align-items: baseline;
@@ -582,7 +589,7 @@ h3 {
   color: var(--ink-2);
 }
 
-.offer .teaser .glyph {
+.teaser .glyph {
   color: var(--color-benefit-text);
   font-weight: 800;
 }
@@ -643,6 +650,119 @@ h3 {
   border-radius: var(--r-s);
 }
 
+/* ─────────────────────── Поля формы ────────────────────────── */
+
+.field {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-5);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--ink);
+  background: var(--paper);
+  /* §3.3 п.5: рамка --line даёт 1,25 и не проходит 1.4.11. У контролов
+     контур обязан быть видимым. */
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-m);
+}
+
+textarea.field {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.checkrow {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  /* §3.5: нажимается вся строка, чекбокс — только индикатор. */
+  padding: var(--sp-4);
+  background: var(--mist);
+  border-radius: var(--r-m);
+  cursor: pointer;
+}
+
+.checkrow input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--color-benefit-strong, var(--lime-deep));
+}
+
+.checkrow span {
+  display: block;
+}
+
+.checkrow .cap {
+  margin-top: var(--sp-2);
+}
+
+/* §3.3 п.4: галочка автозаполнения на --lime-deep даёт 1,77 и не видна.
+   Текстовый лаймовый токен — единственный допустимый способ. */
+.ok-glyph {
+  color: var(--color-benefit-text);
+  font-weight: 800;
+  margin-right: var(--sp-2);
+}
+
+/* ─────────── Шкала «быстрее ↔ дороже» (E3) ─────────────────── */
+
+.scale {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scale-point {
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: var(--paper);
+}
+
+/* Выбранная точка помечена не только заливкой: §3.4 запрещает передавать
+   состояние одним цветом, и подпись «рекомендуем» здесь и есть дубль. */
+.scale-point.on {
+  background: var(--color-benefit-bg);
+  border-color: var(--line-strong);
+}
+
+.scale-price {
+  font-family: var(--font-disp);
+  font-size: var(--fs-title-l);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: var(--sp-1) 0;
+}
+
+.scale-point p {
+  margin: 0;
+}
+
+/* Строка «своя цена + опубликовать». На телефоне поле и кнопка идут друг
+   под другом во всю ширину, на широком экране встают в ряд: кнопка рядом с
+   полем читается как его завершение, а не как отдельное решение. */
+.price-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-8);
+}
+
+.price-form > div {
+  flex: 1 1 200px;
+}
+
+.price-form .btn {
+  flex: 1 1 auto;
+}
+
 /* ───────────────── Пустые состояния (§4.5, EmptyState) ─────── */
 
 .empty {
@@ -661,9 +781,24 @@ h3 {
     padding: 0 var(--sp-10);
   }
 
+  .price-form .btn {
+    flex: 0 0 auto;
+  }
+
   .grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--sp-8);
+  }
+
+  /* Список замечаний остаётся в одну колонку на любой ширине: его читают
+     сверху вниз как список дел, а не сканируют как ленту. */
+  .grid.one {
+    grid-template-columns: 1fr;
+  }
+
+  /* Три точки шкалы помещаются в ряд и только так читаются как шкала. */
+  .scale {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -725,6 +860,10 @@ h3 {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .grid.one {
+    grid-template-columns: 1fr;
+  }
+
   /* Карточка расходится на две колонки: слева — то, что человек читает
      (цена, характеристики, ремонт), справа — предложение проверки,
      которое на широком экране не должно уезжать за сгиб. */
@@ -760,6 +899,10 @@ h3 {
 @media (min-width: 1400px) {
   .grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .grid.one {
+    grid-template-columns: 1fr;
   }
 }
 

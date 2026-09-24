@@ -8,6 +8,8 @@ dependencies = [
     "pydantic>=2.9",
     "uvicorn[standard]>=0.32",
     "jinja2>=3.1",
+    # Формы флоу продажи: FastAPI читает multipart только с ней.
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

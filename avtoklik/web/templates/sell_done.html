@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set nav = 'sell' %}
+
+{% block title %}{% if view.is_published %}Объявление опубликовано{% else %}Нужно поправить{% endif %} · АвтоКлик{% endblock %}
+
+{% block content %}
+  {% if view.is_published %}
+    <p class="eyebrow">Шаг 3 из 3</p>
+    <h1>Опубликовано</h1>
+    <p class="lead">{{ view.title }} за {{ view.price }} уже в витрине.</p>
+
+    <div class="card lime">
+      <p class="cap">Ваше объявление</p>
+      <p class="amount">{{ view.price }}</p>
+      <p>{{ view.title }} · {{ view.year }} · {{ view.mileage }}</p>
+    </div>
+
+    <section class="card mt-4" aria-labelledby="next-title">
+      <h2 id="next-title">Что дальше</h2>
+      <ul class="teaser">
+        <li><span class="glyph" aria-hidden="true">✓</span>Автопроверки пройдены, объявление видно покупателям</li>
+        <li><span class="glyph" aria-hidden="true">✓</span>Мы сами следим, не появилось ли оно на других площадках от чужого имени</li>
+        <li><span aria-hidden="true">·</span>Покупатель видит на вашей карточке расчёт ремонта по пробегу — это снимает половину вопросов на осмотре</li>
+      </ul>
+      <p class="cap">
+        Человеческая модерация пока не подключена: объявление проходит только
+        автоматические проверки.
+      </p>
+      <p class="mt-4">
+        <a class="btn lm" href="{{ url_for('car_card', listing_id=view.listing_id) }}">Открыть карточку</a>
+      </p>
+    </section>
+  {% else %}
+    {# CC6: отказ как список правок. У каждого замечания — что и как исправить. #}
+    <h1>Нужно поправить</h1>
+    <p class="lead">Объявление почти готово. Осталось {{ view.issues|length }} {{ view.issues|length|plural('замечание', 'замечания', 'замечаний') }}.</p>
+
+    <ul class="grid one">
+      {% for issue in view.issues %}
+        <li class="card risk">
+          <p><b>{{ issue.problem }}</b></p>
+          <p class="cap">{{ issue.fix }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <p class="mt-4">
+      <a class="btn lm" href="{{ url_for('sell_price', draft_id=view.draft_id) }}">Вернуться к объявлению</a>
+    </p>
+  {% endif %}
+{% endblock %}

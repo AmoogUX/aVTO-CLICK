@@ -42,6 +42,8 @@ from avtoklik.service.sources.base import DromPayload, NomerogramPayload, PhotoS
 
 __all__ = [
     "AUTORU_FIXTURES",
+    "OCTAVIA_PLATE",
+    "OCTAVIA_VIN",
     "AVITO_FIXTURES",
     "DROM_FIXTURES",
     "GIBDD_FIXTURES",
@@ -354,6 +356,35 @@ SOLARIS_REVIEWS = ReviewsPayload(
 UNKNOWN_PLATE = "А001АА777"
 """Номер, которого нет ни в одной таблице, — сценарий CC5 «не находится в базах»."""
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Автомобиль 3 — Škoda Octavia A7, эталон экрана E3
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Нужен флоу продажи: это единственный сегмент, где объявлений хватает на
+# оценку цены, и именно на нём макет E3 показывает «рекомендуем 1 292 000 ₽».
+# Регистрационных сюрпризов у него нет — экран продажи не про них.
+
+OCTAVIA_PLATE = "О777ТТ178"
+OCTAVIA_VIN = "TMBJJ7NE9H0123456"
+
+OCTAVIA_GIBDD = RegistryPayload(
+    vin=None,
+    brand="Škoda",
+    model="Octavia A7",
+    year=2017,
+    engine="1.4 TSI DSG",
+    owners_count=2,
+    mileage_history=(
+        MileageRecord(recorded_on=date(2024, 5, 18), mileage_km=98_000, source_note="ТО"),
+        MileageRecord(recorded_on=date(2025, 6, 2), mileage_km=121_000, source_note="ТО"),
+    ),
+    accidents=(),
+    is_pledged=False,
+    is_taxi=False,
+    has_restrictions=False,
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Таблицы источников
 # ─────────────────────────────────────────────────────────────────────────────
@@ -383,6 +414,7 @@ def _table(*rows: tuple[str, str, _T]) -> Mapping[str, _T]:
 GIBDD_FIXTURES: Mapping[str, RegistryPayload] = _table(
     (RIO_PLATE, RIO_VIN, RIO_GIBDD),
     (SOLARIS_PLATE, SOLARIS_VIN, SOLARIS_GIBDD),
+    (OCTAVIA_PLATE, OCTAVIA_VIN, OCTAVIA_GIBDD),
 )
 
 NOMEROGRAM_FIXTURES: Mapping[str, NomerogramPayload] = _table(
